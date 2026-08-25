@@ -1,0 +1,1352 @@
+<html style="margin:0;padding:0;">
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Patrick+Hand&display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.147.0/build/three.min.js"></script>
+<script>
+(function(){
+  var s = document.createElement('style');
+  s.textContent = ':root{--bg:#faf9f4;--card:#ffffff;--text:#0f172a;--muted:#64748b;--accent:#297a2e;--accent-soft:rgba(41,122,46,.14);--accent2:#d97706;--accent2-soft:rgba(217,119,6,.14);--border:rgba(15,23,42,.08)}' +
+    '.handwriting{font-family:"Patrick Hand",cursive}' +
+    '.tab-btn{padding:10px 20px;border-radius:10px 10px 0 0;font-weight:600;cursor:pointer;border:1px solid var(--border);border-bottom:none;background:var(--card);color:var(--muted);transition:all .2s}' +
+    '.tab-btn.active{background:var(--accent-soft);color:var(--text);border-color:var(--accent)}' +
+    '.tab-content{display:none;padding:20px;background:var(--card);border:1px solid var(--border);border-radius:0 12px 12px 12px}' +
+    '.tab-content.active{display:block}' +
+    '.letter-card{display:inline-block;padding:8px 16px;margin:4px;border-radius:8px;background:var(--accent-soft);border:1px solid var(--accent);font-size:20px;font-weight:600}' +
+    '.pronun{color:var(--muted);font-size:14px;margin-left:8px}' +
+    '@keyframes pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.08)}}' +
+    '.pulse{animation:pulse 0.8s ease-in-out infinite}' +
+    '.game-btn{padding:12px 28px;border-radius:12px;font-weight:600;font-size:16px;cursor:pointer;transition:all .15s;border:none}' +
+    '.game-btn:active{transform:scale(0.96)}' +
+    '.primary-btn{background:var(--accent);color:#fff;box-shadow:0 4px 14px rgba(41,122,46,.3)}' +
+    '.primary-btn:hover{box-shadow:0 6px 20px rgba(41,122,46,.4)}' +
+    '.secondary-btn{background:var(--card);color:var(--text);border:1px solid var(--border)}' +
+    '.listening{box-shadow:0 0 0 4px var(--accent-soft),0 0 24px rgba(41,122,46,.5)}' +
+    '@keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-5px)}75%{transform:translateX(5px)}}' +
+    '.shake{animation:shake 0.4s ease-in-out}';
+  document.head.appendChild(s);
+})();
+</script>
+<div style="background-color:transparent;box-sizing:border-box;">
+  <div style="color:var(--text);font-family:'Fredoka',sans-serif;background:var(--bg);min-height:600px">
+    <div class="max-w-6xl mx-auto px-4 py-6">
+      
+      <!-- Header -->
+      <div class="text-center mb-4">
+        <h1 class="text-3xl font-bold mb-1" style="color:var(--accent)">Chạy Nhanh - Học Chữ</h1>
+        <p class="text-sm" style="color:var(--muted)">Đọc đúng chữ cái để vượt qua chướng ngại vật, chạy thoát khỏi quái vật đang đuổi theo!</p>
+      </div>
+
+      <!-- Tabs -->
+      <div class="flex gap-1 mb-0" style="border-bottom:1px solid var(--border)">
+        <button class="tab-btn active" data-tab="game">Trò Chơi</button>
+        <button class="tab-btn" data-tab="guide">Hướng Dẫn Đọc</button>
+        <button class="tab-btn" data-tab="help">Cách Chơi</button>
+      </div>
+
+      <!-- Game Tab -->
+      <div class="tab-content active" id="tab-game">
+        <!-- Game HUD -->
+        <div class="flex justify-between items-center mb-3 px-2">
+          <div class="flex gap-6">
+            <div><span style="color:var(--muted);font-size:13px">Điểm: </span><span id="score" class="font-bold text-xl" style="color:var(--accent)">0</span></div>
+            <div><span style="color:var(--muted);font-size:13px">Khoảng cách quái: </span><span id="monster-dist" class="font-bold text-lg" style="color:#dc2626">15m</span></div>
+            <div><span style="color:var(--muted);font-size:13px">Tốc độ: </span><span id="speed" class="font-bold text-sm" style="color:var(--accent2)">1.0x</span></div>
+          </div>
+          <div id="voice-status" class="text-sm px-3 py-1 rounded-full font-medium" style="background:var(--accent-soft);color:var(--accent)">Sẵn sàng</div>
+        </div>
+
+        <!-- 3D Canvas Container -->
+        <div id="game-container" style="position:relative;width:100%;height:560px;border-radius:16px;overflow:hidden;border:2px solid var(--accent);box-shadow:0 8px 32px rgba(0,0,0,.15)">
+          <div id="canvas3d" style="width:100%;height:100%"></div>
+          
+          <!-- Letter Display Overlay -->
+          <div id="letter-overlay" style="position:absolute;top:24px;left:50%;transform:translateX(-50%);text-align:center;display:none;z-index:5">
+            <div style="font-size:13px;color:var(--muted);margin-bottom:2px;background:rgba(255,255,255,0.7);padding:2px 10px;border-radius:10px">Đọc to chữ này:</div>
+            <div id="current-letter" class="handwriting pulse" style="font-size:90px;font-weight:bold;color:var(--accent);text-shadow:3px 3px 0 #fff,-3px -3px 0 #fff,3px -3px 0 #fff,-3px 3px 0 #fff,0 0 20px rgba(255,255,255,0.8);line-height:1;letter-spacing:2px">A</div>
+            <div id="letter-hint" class="handwriting" style="font-size:20px;color:var(--accent2);margin-top:-2px;background:rgba(255,255,255,0.8);padding:2px 12px;border-radius:10px;display:inline-block">gờ</div>
+          </div>
+
+          <!-- Danger indicator -->
+          <div id="danger-indicator" style="position:absolute;left:20px;bottom:20px;padding:8px 16px;border-radius:10px;font-weight:600;display:none;z-index:5;background:rgba(220,38,38,.9);color:#fff">
+            ⚠ QUÁI ĐANG TIẾN LẠI!
+          </div>
+
+          <!-- Start Screen -->
+          <div id="start-screen" style="position:absolute;inset:0;background:rgba(15,23,42,0.85);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:10;color:#fff">
+            <div class="handwriting" style="font-size:64px;color:#4ade80;margin-bottom:8px;text-shadow:0 0 30px rgba(74,222,128,.5)">Chạy Nhanh!</div>
+            <p style="color:#cbd5e1;margin-bottom:24px;max-width:440px;text-align:center;line-height:1.6">Quái vật đang đuổi theo phía sau! Đọc to và đúng chữ cái hiện ra để nhân vật vượt qua chướng ngại vật. Đọc sai hoặc chậm là bị bắt ngay lập tức!</p>
+            <button id="start-btn" class="game-btn primary-btn" style="font-size:18px;padding:14px 36px">▶ Bắt Đầu Chơi</button>
+            <p style="color:#94a3b8;font-size:12px;margin-top:16px">Lưu ý: Cần cho phép truy cập micro · Tốt nhất trên Chrome/Edge</p>
+          </div>
+
+          <!-- Game Over Screen -->
+          <div id="gameover-screen" style="position:absolute;inset:0;background:rgba(15,23,42,0.9);display:none;flex-direction:column;align-items:center;justify-content:center;z-index:10;color:#fff">
+            <div style="font-size:52px;color:#ef4444;margin-bottom:8px;font-weight:700;text-shadow:0 0 30px rgba(239,68,68,.5)">Bị Bắt Rồi!</div>
+            <p style="color:#cbd5e1;font-size:16px;margin-bottom:4px">Quái vật đã bắt kịp bạn</p>
+            <p style="color:#fff;font-size:22px;margin-bottom:24px">Điểm: <span id="final-score" class="font-bold" style="color:#4ade80">0</span></p>
+            <button id="restart-btn" class="game-btn primary-btn" style="font-size:18px;padding:14px 36px">🔄 Chơi Lại</button>
+          </div>
+
+          <!-- Feedback -->
+          <div id="feedback" style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);padding:16px 32px;border-radius:16px;font-weight:700;font-size:24px;display:none;z-index:6;box-shadow:0 8px 32px rgba(0,0,0,.3)"></div>
+        </div>
+
+        <!-- Controls -->
+        <div class="flex justify-center gap-3 mt-4">
+          <button id="mic-btn" class="game-btn secondary-btn" disabled>
+            🎤 Bật Micro Thủ Công
+          </button>
+          <button id="pause-btn" class="game-btn secondary-btn" disabled>⏸ Tạm Dừng</button>
+        </div>
+        <p class="text-center text-xs mt-2" style="color:var(--muted)">Phụ âm ghép chỉ có 1 cách đọc đúng duy nhất. Đọc to, rõ ràng.</p>
+      </div>
+
+      <!-- Guide Tab -->
+      <div class="tab-content" id="tab-guide">
+        <h3 class="font-bold text-lg mb-3" style="color:var(--accent)">29 Chữ cái và cách đọc</h3>
+        <div id="letters-guide" class="mb-6"></div>
+        <h3 class="font-bold text-lg mb-3" style="color:var(--accent2)">11 Phụ âm ghép (chỉ 1 cách đọc đúng)</h3>
+        <div id="compounds-guide"></div>
+      </div>
+
+      <!-- Help Tab -->
+      <div class="tab-content" id="tab-help">
+        <h3 class="font-bold text-lg mb-3" style="color:var(--accent)">Luật chơi</h3>
+        <div class="space-y-3" style="color:var(--text);line-height:1.7">
+          <p><strong>1. Bắt đầu:</strong> Nhấn "Bắt Đầu Chơi" và cho phép trình duyệt truy cập micro.</p>
+          <p><strong>2. Chạy và đuổi theo:</strong> Nhân vật tự động chạy. Quái vật ở phía sau luôn đuổi theo, chỉ cần bạn đọc sai một lần là bị bắt ngay lập tức và thua.</p>
+          <p><strong>3. Chướng ngại vật:</strong> Khi có chướng ngại vật, một chữ cái sẽ hiện ra lớn ở trên màn hình.</p>
+          <p><strong>4. Đọc chữ:</strong> Đọc to tên của chữ cái đó. Hệ thống sẽ tự động nghe và nhận dạng.</p>
+          <p><strong>5. Chữ cái đơn:</strong> Có nhiều cách đọc chấp nhận được (ví dụ: <strong>b</strong> = "bờ", "bê", "bờ bê").</p>
+          <p><strong>6. Phụ âm ghép:</strong> Chỉ có <strong>1 cách đọc đúng duy nhất</strong> (ví dụ: <strong>ngh</strong> chỉ đọc là "ngờ", <strong>th</strong> chỉ đọc là "thờ").</p>
+          <p><strong>7. Vượt qua:</strong> Đọc đúng → nhân vật nhảy vượt, được cộng điểm, quái vật bị bỏ lại xa hơn.</p>
+          <p><strong>8. Thua:</strong> Đọc sai / không kịp thời / quái vật bắt kịp → Game Over ngay lập tức.</p>
+        </div>
+        <div class="mt-4 p-4 rounded-xl" style="background:var(--accent-soft);border:1px solid var(--accent)">
+          <p class="font-semibold" style="color:var(--accent)">💡 Mẹo:</p>
+          <p class="text-sm mt-1" style="color:var(--text)">Góc nhìn nghiêng phải giúp bạn quan sát cả phía trước và thấy quái vật đang đuổi theo phía sau. Hãy giữ bình tĩnh và đọc rõ ràng!</p>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  // ===== DATA: Letters and pronunciations =====
+  var LETTERS = [
+    {letter:'a', names:['a'], type:'vowel'},
+    {letter:'ă', names:['a mũ','ăm','a mũ'], type:'vowel'},
+    {letter:'â', names:['a mũ','a ốc','âm'], type:'vowel'},
+    {letter:'b', names:['bờ','bê','bờ bê','be','bờbe'], type:'consonant'},
+    {letter:'c', names:['xê','cờ','xê cờ','ce','xêcờ'], type:'consonant'},
+    {letter:'d', names:['dê','dờ','dê dờ','de','dêdờ'], type:'consonant'},
+    {letter:'đ', names:['đê','đờ','đê đờ','đe','đêđờ'], type:'consonant'},
+    {letter:'e', names:['e'], type:'vowel'},
+    {letter:'ê', names:['ê'], type:'vowel'},
+    {letter:'g', names:['giê','gờ','giê gờ','gie','giêgờ'], type:'consonant'},
+    {letter:'h', names:['hát','hờ','hát hờ'], type:'consonant'},
+    {letter:'i', names:['i'], type:'vowel'},
+    {letter:'k', names:['ca','kờ','ca kờ','ka','cakờ'], type:'consonant'},
+    {letter:'l', names:['lờ','e lờ','elờ','lờ e lờ'], type:'consonant'},
+    {letter:'m', names:['mờ','em mờ','emmờ','mờ em mờ'], type:'consonant'},
+    {letter:'n', names:['nờ','en nờ','ennờ','nờ en nờ'], type:'consonant'},
+    {letter:'o', names:['o'], type:'vowel'},
+    {letter:'ô', names:['ô'], type:'vowel'},
+    {letter:'ơ', names:['ơ'], type:'vowel'},
+    {letter:'p', names:['pê','pờ','pê pờ','pe','pêpờ'], type:'consonant'},
+    {letter:'q', names:['quy','quờ','quy quờ','qui','quyquờ'], type:'consonant'},
+    {letter:'r', names:['rờ','e rờ','erờ','rờ e rờ'], type:'consonant'},
+    {letter:'s', names:['sờ','ét sì','ét xì','ét sì sờ','etsì'], type:'consonant'},
+    {letter:'t', names:['tê','tờ','tê tờ','te','têtờ'], type:'consonant'},
+    {letter:'u', names:['u'], type:'vowel'},
+    {letter:'ư', names:['ư'], type:'vowel'},
+    {letter:'v', names:['vê','vờ','vê vờ','ve','vêvờ'], type:'consonant'},
+    {letter:'x', names:['ích xì','ích sì','xờ','ích xì xờ'], type:'consonant'},
+    {letter:'y', names:['i cốt','y giéc','i cốt y giéc','icốt'], type:'consonant'}
+  ];
+
+  // Compounds: ONLY ONE correct pronunciation each
+  var COMPOUNDS = [
+    {letter:'ch', names:['chờ']},
+    {letter:'gh', names:['giê hờ']},
+    {letter:'gi', names:['giờ']},
+    {letter:'kh', names:['khờ']},
+    {letter:'ng', names:['ngờ']},
+    {letter:'ngh', names:['ngờ']},
+    {letter:'nh', names:['nhờ']},
+    {letter:'ph', names:['phờ']},
+    {letter:'qu', names:['quờ']},
+    {letter:'th', names:['thờ']},
+    {letter:'tr', names:['trờ']}
+  ];
+
+  // Populate guide tabs
+  var lettersGuide = document.getElementById('letters-guide');
+  LETTERS.forEach(function(l){
+    var span = document.createElement('span');
+    span.className = 'letter-card handwriting';
+    span.innerHTML = l.letter.toUpperCase() + '<span class="pronun">' + l.names.slice(0,3).join(' / ') + '</span>';
+    lettersGuide.appendChild(span);
+  });
+
+  var compoundsGuide = document.getElementById('compounds-guide');
+  COMPOUNDS.forEach(function(c){
+    var span = document.createElement('span');
+    span.className = 'letter-card handwriting';
+    span.style.background = 'var(--accent2-soft)';
+    span.style.borderColor = 'var(--accent2)';
+    span.innerHTML = c.letter + '<span class="pronun">→ ' + c.names[0] + '</span>';
+    compoundsGuide.appendChild(span);
+  });
+
+  // Tab switching
+  document.querySelectorAll('.tab-btn').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      document.querySelectorAll('.tab-btn').forEach(function(b){b.classList.remove('active')});
+      document.querySelectorAll('.tab-content').forEach(function(c){c.classList.remove('active')});
+      btn.classList.add('active');
+      document.getElementById('tab-' + btn.dataset.tab).classList.add('active');
+    });
+  });
+
+  // ===== GAME STATE =====
+  var game = {
+    running: false,
+    paused: false,
+    score: 0,
+    speed: 1,
+    baseSpeed: 0.18,
+    distance: 0,
+    monsterDistance: 12,
+    monsterCatchDistance: 3,
+    currentObstacle: null,
+    obstacleActive: false,
+    listening: false,
+    voiceReady: false,
+    recognition: null,
+    lastObstacleZ: 0
+  };
+
+  // ===== THREE.JS SETUP - High Quality =====
+  var container = document.getElementById('canvas3d');
+  var scene, camera, renderer;
+  var player, monster, road, obstacles = [];
+  var clock = new THREE.Clock();
+  var playerAnimTime = 0;
+  var isJumping = false;
+  var jumpVelocity = 0;
+  var cameraOffset = new THREE.Vector3(4, 3.5, -5);
+  var particles = [];
+  var dustParticles = [];
+
+  function initThree(){
+    var w = container.clientWidth, h = container.clientHeight;
+    
+    scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x87CEEB);
+    scene.fog = new THREE.Fog(0x87CEEB, 25, 90);
+    
+    // Camera: right side view, can see behind
+    camera = new THREE.PerspectiveCamera(55, w/h, 0.1, 300);
+    
+    renderer = new THREE.WebGLRenderer({antialias:true});
+    renderer.setSize(w, h);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.1;
+    container.appendChild(renderer.domElement);
+    
+    // ===== LIGHTING - Realistic =====
+    // Ambient
+    var ambient = new THREE.AmbientLight(0xffffff, 0.5);
+    scene.add(ambient);
+    
+    // Hemisphere light (sky + ground)
+    var hemiLight = new THREE.HemisphereLight(0x87CEEB, 0x5D4037, 0.4);
+    scene.add(hemiLight);
+    
+    // Main sun light
+    var sun = new THREE.DirectionalLight(0xFFF8E1, 1.0);
+    sun.position.set(15, 25, 10);
+    sun.castShadow = true;
+    sun.shadow.mapSize.width = 2048;
+    sun.shadow.mapSize.height = 2048;
+    sun.shadow.camera.left = -25;
+    sun.shadow.camera.right = 25;
+    sun.shadow.camera.top = 25;
+    sun.shadow.camera.bottom = -25;
+    sun.shadow.camera.near = 0.5;
+    sun.shadow.camera.far = 100;
+    sun.shadow.bias = -0.0005;
+    sun.shadow.radius = 3;
+    scene.add(sun);
+    
+    // Fill light from side
+    var fillLight = new THREE.DirectionalLight(0xB3E5FC, 0.3);
+    fillLight.position.set(-10, 10, -5);
+    scene.add(fillLight);
+    
+    // ===== ENVIRONMENT =====
+    createSkyDome();
+    createRoad();
+    createEnvironment();
+    createDustParticles();
+    
+    // ===== CHARACTERS =====
+    player = createCharacter();
+    player.position.set(0, 0, 0);
+    scene.add(player);
+    
+    monster = createMonster();
+    monster.position.set(0, 0, -game.monsterDistance);
+    scene.add(monster);
+    
+    window.addEventListener('resize', onResize);
+  }
+
+  function createSkyDome(){
+    // Sky gradient using large sphere
+    var skyGeo = new THREE.SphereGeometry(200, 32, 32);
+    var skyMat = new THREE.ShaderMaterial({
+      uniforms: {
+        topColor: { value: new THREE.Color(0x1E88E5) },
+        bottomColor: { value: new THREE.Color(0xBBDEFB) },
+        offset: { value: 30 },
+        exponent: { value: 0.6 }
+      },
+      vertexShader: 'varying vec3 vWorldPosition;void main(){vec4 worldPosition=modelMatrix*vec4(position,1.0);vWorldPosition=worldPosition.xyz;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);}',
+      side: THREE.BackSide
+    });
+    skyMat.fragmentShader = 'uniform vec3 topColor;uniform vec3 bottomColor;uniform float offset;uniform float exponent;varying vec3 vWorldPosition;void main(){float h=normalize(vWorldPosition+vec3(0.0,offset,0.0)).y;float f=max(pow(max(h,0.0),exponent),0.0);gl_FragColor=vec4(mix(bottomColor,topColor,vec3(f)),1.0);}';
+    var sky = new THREE.Mesh(skyGeo, skyMat);
+    scene.add(sky);
+    
+    // Clouds
+    for(var c = 0; c < 15; c++){
+      var cloud = createCloud();
+      cloud.position.set(
+        (Math.random() - 0.5) * 120,
+        25 + Math.random() * 15,
+        Math.random() * 150 - 20
+      );
+      cloud.scale.setScalar(0.8 + Math.random() * 0.8);
+      scene.add(cloud);
+    }
+  }
+
+  function createCloud(){
+    var group = new THREE.Group();
+    var cloudMat = new THREE.MeshStandardMaterial({
+      color: 0xffffff,
+      roughness: 1,
+      metalness: 0
+    });
+    for(var i = 0; i < 5; i++){
+      var size = 2 + Math.random() * 2;
+      var puffGeo = new THREE.SphereGeometry(size, 12, 8);
+      var puff = new THREE.Mesh(puffGeo, cloudMat);
+      puff.position.set(
+        (Math.random() - 0.5) * 5,
+        (Math.random() - 0.5) * 1.5,
+        (Math.random() - 0.5) * 3
+      );
+      group.add(puff);
+    }
+    return group;
+  }
+
+  function createRoad(){
+    // Main road
+    var roadGeo = new THREE.PlaneGeometry(9, 250);
+    var roadMat = new THREE.MeshStandardMaterial({
+      color: 0x3a3a3a,
+      roughness: 0.9,
+      metalness: 0.1
+    });
+    road = new THREE.Mesh(roadGeo, roadMat);
+    road.rotation.x = -Math.PI/2;
+    road.position.z = 60;
+    road.receiveShadow = true;
+    scene.add(road);
+    
+    // Road edges (white lines)
+    var edgeMat = new THREE.MeshStandardMaterial({color:0xffffff, roughness:0.7});
+    for(var side = -1; side <= 1; side += 2){
+      var edgeGeo = new THREE.PlaneGeometry(0.15, 250);
+      var edge = new THREE.Mesh(edgeGeo, edgeMat);
+      edge.rotation.x = -Math.PI/2;
+      edge.position.set(side * 4.4, 0.01, 60);
+      scene.add(edge);
+    }
+    
+    // Center dashed lines
+    var dashMat = new THREE.MeshStandardMaterial({color:0xFFFF00, roughness:0.6, emissive:0x333300});
+    for(var i = 0; i < 50; i++){
+      var markGeo = new THREE.PlaneGeometry(0.2, 2.5);
+      var mark = new THREE.Mesh(markGeo, dashMat);
+      mark.rotation.x = -Math.PI/2;
+      mark.position.set(0, 0.01, i * 5);
+      scene.add(mark);
+    }
+    
+    // Shoulders
+    var shoulderMat = new THREE.MeshStandardMaterial({color:0x6D4C41, roughness:1});
+    for(var s = -1; s <= 1; s += 2){
+      var shoulderGeo = new THREE.PlaneGeometry(1.5, 250);
+      var shoulder = new THREE.Mesh(shoulderGeo, shoulderMat);
+      shoulder.rotation.x = -Math.PI/2;
+      shoulder.position.set(s * 5.2, 0.005, 60);
+      shoulder.receiveShadow = true;
+      scene.add(shoulder);
+    }
+  }
+
+  function createEnvironment(){
+    // Grass
+    var grassGeo = new THREE.PlaneGeometry(200, 250, 50, 50);
+    var grassMat = new THREE.MeshStandardMaterial({
+      color: 0x4CAF50,
+      roughness: 1,
+      metalness: 0
+    });
+    // Add slight variation to grass vertices
+    var verts = grassGeo.attributes.position.array;
+    for(var v = 0; v < verts.length; v += 3){
+      verts[v + 2] += (Math.random() - 0.5) * 0.1;
+    }
+    grassGeo.computeVertexNormals();
+    var grass = new THREE.Mesh(grassGeo, grassMat);
+    grass.rotation.x = -Math.PI/2;
+    grass.position.set(0, -0.02, 60);
+    grass.receiveShadow = true;
+    scene.add(grass);
+    
+    // Trees
+    for(var t = 0; t < 40; t++){
+      var tree = createTree();
+      var side = Math.random() > 0.5 ? 1 : -1;
+      tree.position.set(side * (7 + Math.random() * 20), 0, t * 6 + Math.random() * 3);
+      tree.scale.setScalar(0.8 + Math.random() * 0.6);
+      scene.add(tree);
+    }
+    
+    // Mountains in distance
+    createMountains();
+  }
+
+  function createTree(){
+    var group = new THREE.Group();
+    
+    // Trunk
+    var trunkGeo = new THREE.CylinderGeometry(0.25, 0.35, 2, 10);
+    var trunkMat = new THREE.MeshStandardMaterial({
+      color: 0x5D4037,
+      roughness: 0.95,
+      metalness: 0
+    });
+    var trunk = new THREE.Mesh(trunkGeo, trunkMat);
+    trunk.position.y = 1;
+    trunk.castShadow = true;
+    trunk.receiveShadow = true;
+    group.add(trunk);
+    
+    // Foliage layers
+    var leafMat = new THREE.MeshStandardMaterial({
+      color: 0x2E7D32,
+      roughness: 0.9,
+      metalness: 0
+    });
+    var leafMat2 = new THREE.MeshStandardMaterial({
+      color: 0x388E3C,
+      roughness: 0.9,
+      metalness: 0
+    });
+    
+    var leaf1 = new THREE.Mesh(new THREE.ConeGeometry(1.8, 3, 10), leafMat);
+    leaf1.position.y = 3.2;
+    leaf1.castShadow = true;
+    group.add(leaf1);
+    
+    var leaf2 = new THREE.Mesh(new THREE.ConeGeometry(1.4, 2.5, 10), leafMat2);
+    leaf2.position.y = 4.5;
+    leaf2.castShadow = true;
+    group.add(leaf2);
+    
+    var leaf3 = new THREE.Mesh(new THREE.ConeGeometry(1, 2, 10), leafMat);
+    leaf3.position.y = 5.5;
+    leaf3.castShadow = true;
+    group.add(leaf3);
+    
+    return group;
+  }
+
+  function createMountains(){
+    var mountainMat = new THREE.MeshStandardMaterial({
+      color: 0x607D8B,
+      roughness: 1,
+      metalness: 0
+    });
+    var snowMat = new THREE.MeshStandardMaterial({
+      color: 0xECEFF1,
+      roughness: 0.8,
+      metalness: 0
+    });
+    
+    for(var m = 0; m < 8; m++){
+      var group = new THREE.Group();
+      var baseSize = 8 + Math.random() * 6;
+      var height = 12 + Math.random() * 8;
+      
+      var mountainGeo = new THREE.ConeGeometry(baseSize, height, 8);
+      var mountain = new THREE.Mesh(mountainGeo, mountainMat);
+      mountain.position.y = height / 2 - 1;
+      group.add(mountain);
+      
+      // Snow cap
+      var snowGeo = new THREE.ConeGeometry(baseSize * 0.35, height * 0.3, 8);
+      var snow = new THREE.Mesh(snowGeo, snowMat);
+      snow.position.y = height * 0.75 - 1;
+      group.add(snow);
+      
+      var side = Math.random() > 0.5 ? 1 : -1;
+      group.position.set(side * (40 + Math.random() * 30), 0, 80 + m * 15 + Math.random() * 10);
+      group.scale.setScalar(0.8 + Math.random() * 0.5);
+      scene.add(group);
+    }
+  }
+
+  function createDustParticles(){
+    var dustGeo = new THREE.BufferGeometry();
+    var dustCount = 100;
+    var positions = new Float32Array(dustCount * 3);
+    for(var i = 0; i < dustCount * 3; i += 3){
+      positions[i] = (Math.random() - 0.5) * 10;
+      positions[i + 1] = Math.random() * 0.5;
+      positions[i + 2] = Math.random() * 2;
+    }
+    dustGeo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+    
+    var dustMat = new THREE.PointsMaterial({
+      color: 0xD7CCC8,
+      size: 0.15,
+      transparent: true,
+      opacity: 0.4
+    });
+    
+    var dust = new THREE.Points(dustGeo, dustMat);
+    dust.position.set(0, 0, 0);
+    dust.userData.isDust = true;
+    scene.add(dust);
+    dustParticles.push(dust);
+  }
+
+  function createCharacter(){
+    var group = new THREE.Group();
+    
+    // Skin material
+    var skinMat = new THREE.MeshStandardMaterial({
+      color: 0xFFCC80,
+      roughness: 0.7,
+      metalness: 0
+    });
+    
+    // Shirt material
+    var shirtMat = new THREE.MeshStandardMaterial({
+      color: 0x2196F3,
+      roughness: 0.6,
+      metalness: 0.1
+    });
+    
+    // Pants material
+    var pantsMat = new THREE.MeshStandardMaterial({
+      color: 0x1565C0,
+      roughness: 0.8,
+      metalness: 0
+    });
+    
+    // Shoes
+    var shoeMat = new THREE.MeshStandardMaterial({
+      color: 0x212121,
+      roughness: 0.7,
+      metalness: 0.2
+    });
+    
+    // Hair
+    var hairMat = new THREE.MeshStandardMaterial({
+      color: 0x3E2723,
+      roughness: 0.9,
+      metalness: 0
+    });
+    
+    // Body
+    var bodyGeo = new THREE.BoxGeometry(0.65, 0.85, 0.4);
+    var body = new THREE.Mesh(bodyGeo, shirtMat);
+    body.position.y = 1.25;
+    body.castShadow = true;
+    body.receiveShadow = true;
+    group.add(body);
+    
+    // Head
+    var headGeo = new THREE.SphereGeometry(0.32, 24, 20);
+    var head = new THREE.Mesh(headGeo, skinMat);
+    head.position.y = 2.0;
+    head.castShadow = true;
+    group.add(head);
+    
+    // Hair
+    var hairGeo = new THREE.SphereGeometry(0.34, 24, 16, 0, Math.PI * 2, 0, Math.PI / 2);
+    var hair = new THREE.Mesh(hairGeo, hairMat);
+    hair.position.y = 2.05;
+    group.add(hair);
+    
+    // Eyes
+    var eyeWhiteGeo = new THREE.SphereGeometry(0.07, 12, 12);
+    var eyeWhiteMat = new THREE.MeshStandardMaterial({color:0xffffff, roughness:0.3});
+    var eyeL = new THREE.Mesh(eyeWhiteGeo, eyeWhiteMat);
+    eyeL.position.set(-0.11, 2.03, 0.27);
+    group.add(eyeL);
+    var eyeR = new THREE.Mesh(eyeWhiteGeo, eyeWhiteMat);
+    eyeR.position.set(0.11, 2.03, 0.27);
+    group.add(eyeR);
+    
+    var pupilGeo = new THREE.SphereGeometry(0.035, 10, 10);
+    var pupilMat = new THREE.MeshStandardMaterial({color:0x1a1a1a, roughness:0.2, metalness:0.3});
+    var pupilL = new THREE.Mesh(pupilGeo, pupilMat);
+    pupilL.position.set(-0.11, 2.03, 0.32);
+    group.add(pupilL);
+    var pupilR = new THREE.Mesh(pupilGeo, pupilMat);
+    pupilR.position.set(0.11, 2.03, 0.32);
+    group.add(pupilR);
+    
+    // Smile
+    var smileGeo = new THREE.TorusGeometry(0.06, 0.015, 8, 16, Math.PI);
+    var smileMat = new THREE.MeshStandardMaterial({color:0xB71C1C, roughness:0.5});
+    var smile = new THREE.Mesh(smileGeo, smileMat);
+    smile.position.set(0, 1.88, 0.28);
+    smile.rotation.x = Math.PI;
+    group.add(smile);
+    
+    // Legs
+    var legGeo = new THREE.BoxGeometry(0.22, 0.65, 0.22);
+    var legL = new THREE.Mesh(legGeo, pantsMat);
+    legL.position.set(-0.16, 0.55, 0);
+    legL.castShadow = true;
+    group.add(legL);
+    group.userData.legL = legL;
+    
+    var legR = new THREE.Mesh(legGeo, pantsMat);
+    legR.position.set(0.16, 0.55, 0);
+    legR.castShadow = true;
+    group.add(legR);
+    group.userData.legR = legR;
+    
+    // Shoes
+    var shoeGeo = new THREE.BoxGeometry(0.26, 0.12, 0.32);
+    var shoeL = new THREE.Mesh(shoeGeo, shoeMat);
+    shoeL.position.set(-0.16, 0.1, 0.03);
+    shoeL.castShadow = true;
+    group.add(shoeL);
+    group.userData.shoeL = shoeL;
+    
+    var shoeR = new THREE.Mesh(shoeGeo, shoeMat);
+    shoeR.position.set(0.16, 0.1, 0.03);
+    shoeR.castShadow = true;
+    group.add(shoeR);
+    group.userData.shoeR = shoeR;
+    
+    // Arms
+    var armGeo = new THREE.BoxGeometry(0.16, 0.55, 0.16);
+    var armL = new THREE.Mesh(armGeo, shirtMat);
+    armL.position.set(-0.46, 1.35, 0);
+    armL.castShadow = true;
+    group.add(armL);
+    group.userData.armL = armL;
+    
+    var armR = new THREE.Mesh(armGeo, shirtMat);
+    armR.position.set(0.46, 1.35, 0);
+    armR.castShadow = true;
+    group.add(armR);
+    group.userData.armR = armR;
+    
+    // Hands
+    var handGeo = new THREE.SphereGeometry(0.09, 12, 12);
+    var handL = new THREE.Mesh(handGeo, skinMat);
+    handL.position.set(-0.46, 1.0, 0);
+    group.add(handL);
+    group.userData.handL = handL;
+    
+    var handR = new THREE.Mesh(handGeo, skinMat);
+    handR.position.set(0.46, 1.0, 0);
+    group.add(handR);
+    group.userData.handR = handR;
+    
+    return group;
+  }
+
+  function createMonster(){
+    var group = new THREE.Group();
+    
+    // Body material - dark red scaly
+    var bodyMat = new THREE.MeshStandardMaterial({
+      color: 0xB71C1C,
+      roughness: 0.85,
+      metalness: 0.1
+    });
+    
+    var darkMat = new THREE.MeshStandardMaterial({
+      color: 0x7F0000,
+      roughness: 0.9,
+      metalness: 0.1
+    });
+    
+    // Horn material
+    var hornMat = new THREE.MeshStandardMaterial({
+      color: 0x212121,
+      roughness: 0.4,
+      metalness: 0.6
+    });
+    
+    // Body - large and menacing
+    var bodyGeo = new THREE.BoxGeometry(1.3, 1.5, 1);
+    var body = new THREE.Mesh(bodyGeo, bodyMat);
+    body.position.y = 1.6;
+    body.castShadow = true;
+    body.receiveShadow = true;
+    group.add(body);
+    
+    // Spikes on back
+    for(var sp = 0; sp < 5; sp++){
+      var spikeGeo = new THREE.ConeGeometry(0.12, 0.4, 6);
+      var spike = new THREE.Mesh(spikeGeo, darkMat);
+      spike.position.set(-0.4 + sp * 0.2, 2.4, -0.3);
+      spike.rotation.x = -0.3;
+      group.add(spike);
+    }
+    
+    // Head
+    var headGeo = new THREE.BoxGeometry(1.1, 0.95, 0.85);
+    var head = new THREE.Mesh(headGeo, bodyMat);
+    head.position.y = 2.75;
+    head.castShadow = true;
+    group.add(head);
+    
+    // Jaw
+    var jawGeo = new THREE.BoxGeometry(0.9, 0.3, 0.7);
+    var jaw = new THREE.Mesh(jawGeo, darkMat);
+    jaw.position.y = 2.35;
+    jaw.position.z = 0.1;
+    group.add(jaw);
+    group.userData.jaw = jaw;
+    
+    // Teeth
+    var toothMat = new THREE.MeshStandardMaterial({color:0xFAFAFA, roughness:0.3});
+    for(var t = 0; t < 5; t++){
+      var toothGeo = new THREE.ConeGeometry(0.05, 0.15, 4);
+      var tooth = new THREE.Mesh(toothGeo, toothMat);
+      tooth.position.set(-0.32 + t * 0.16, 2.52, 0.42);
+      tooth.rotation.x = Math.PI;
+      group.add(tooth);
+    }
+    
+    // Eyes - glowing yellow
+    var eyeGeo = new THREE.SphereGeometry(0.13, 16, 16);
+    var eyeMat = new THREE.MeshStandardMaterial({
+      color: 0xFFEB3B,
+      emissive: 0xFFC107,
+      emissiveIntensity: 0.8,
+      roughness: 0.2,
+      metalness: 0.3
+    });
+    var eyeL = new THREE.Mesh(eyeGeo, eyeMat);
+    eyeL.position.set(-0.28, 2.85, 0.38);
+    group.add(eyeL);
+    var eyeR = new THREE.Mesh(eyeGeo, eyeMat);
+    eyeR.position.set(0.28, 2.85, 0.38);
+    group.add(eyeR);
+    
+    // Pupils - slit
+    var pupilGeo = new THREE.BoxGeometry(0.04, 0.12, 0.05);
+    var pupilMat = new THREE.MeshStandardMaterial({color:0x000000, roughness:0.1, metalness:0.5});
+    var pupilL = new THREE.Mesh(pupilGeo, pupilMat);
+    pupilL.position.set(-0.28, 2.85, 0.48);
+    group.add(pupilL);
+    var pupilR = new THREE.Mesh(pupilGeo, pupilMat);
+    pupilR.position.set(0.28, 2.85, 0.48);
+    group.add(pupilR);
+    
+    // Eyebrows (angry)
+    var browGeo = new THREE.BoxGeometry(0.3, 0.06, 0.05);
+    var browMat = new THREE.MeshStandardMaterial({color:0x3E2723, roughness:0.8});
+    var browL = new THREE.Mesh(browGeo, browMat);
+    browL.position.set(-0.28, 3.0, 0.4);
+    browL.rotation.z = 0.3;
+    group.add(browL);
+    var browR = new THREE.Mesh(browGeo, browMat);
+    browR.position.set(0.28, 3.0, 0.4);
+    browR.rotation.z = -0.3;
+    group.add(browR);
+    
+    // Horns
+    var hornL = new THREE.Mesh(new THREE.ConeGeometry(0.12, 0.55, 8), hornMat);
+    hornL.position.set(-0.38, 3.3, 0);
+    hornL.rotation.z = 0.4;
+    hornL.castShadow = true;
+    group.add(hornL);
+    
+    var hornR = new THREE.Mesh(new THREE.ConeGeometry(0.12, 0.55, 8), hornMat);
+    hornR.position.set(0.38, 3.3, 0);
+    hornR.rotation.z = -0.4;
+    hornR.castShadow = true;
+    group.add(hornR);
+    
+    // Legs
+    var legGeo = new THREE.BoxGeometry(0.32, 0.8, 0.32);
+    var legL = new THREE.Mesh(legGeo, darkMat);
+    legL.position.set(-0.32, 0.6, 0);
+    legL.castShadow = true;
+    group.add(legL);
+    group.userData.legL = legL;
+    
+    var legR = new THREE.Mesh(legGeo, darkMat);
+    legR.position.set(0.32, 0.6, 0);
+    legR.castShadow = true;
+    group.add(legR);
+    group.userData.legR = legR;
+    
+    // Claws on feet
+    var clawMat = new THREE.MeshStandardMaterial({color:0x1a1a1a, roughness:0.3, metalness:0.5});
+    for(var c = 0; c < 3; c++){
+      var clawGeo = new THREE.ConeGeometry(0.04, 0.15, 4);
+      var clawL = new THREE.Mesh(clawGeo, clawMat);
+      clawL.position.set(-0.42 + c * 0.1, 0.15, 0.18);
+      clawL.rotation.x = -0.5;
+      group.add(clawL);
+      
+      var clawR = new THREE.Mesh(clawGeo, clawMat);
+      clawR.position.set(0.22 + c * 0.1, 0.15, 0.18);
+      clawR.rotation.x = -0.5;
+      group.add(clawR);
+    }
+    
+    // Arms
+    var armGeo = new THREE.BoxGeometry(0.28, 0.7, 0.28);
+    var armL = new THREE.Mesh(armGeo, bodyMat);
+    armL.position.set(-0.8, 1.7, 0);
+    armL.castShadow = true;
+    group.add(armL);
+    group.userData.armL = armL;
+    
+    var armR = new THREE.Mesh(armGeo, bodyMat);
+    armR.position.set(0.8, 1.7, 0);
+    armR.castShadow = true;
+    group.add(armR);
+    group.userData.armR = armR;
+    
+    // Claws hands
+    var clawHandGeo = new THREE.SphereGeometry(0.18, 12, 12);
+    var clawHandL = new THREE.Mesh(clawHandGeo, darkMat);
+    clawHandL.position.set(-0.8, 1.25, 0);
+    group.add(clawHandL);
+    var clawHandR = new THREE.Mesh(clawHandGeo, darkMat);
+    clawHandR.position.set(0.8, 1.25, 0);
+    group.add(clawHandR);
+    
+    // Tail
+    var tailGeo = new THREE.CylinderGeometry(0.08, 0.15, 1.5, 8);
+    var tail = new THREE.Mesh(tailGeo, bodyMat);
+    tail.position.set(0, 1.5, -0.6);
+    tail.rotation.x = 0.5;
+    tail.castShadow = true;
+    group.add(tail);
+    group.userData.tail = tail;
+    
+    return group;
+  }
+
+  function createObstacle(zPos){
+    var group = new THREE.Group();
+    
+    // Main barrier
+    var barrierMat = new THREE.MeshStandardMaterial({
+      color: 0x8D6E63,
+      roughness: 0.85,
+      metalness: 0.1
+    });
+    
+    var barrierGeo = new THREE.BoxGeometry(2.5, 1.6, 0.6);
+    var barrier = new THREE.Mesh(barrierGeo, barrierMat);
+    barrier.position.y = 0.8;
+    barrier.castShadow = true;
+    barrier.receiveShadow = true;
+    group.add(barrier);
+    
+    // Warning stripes
+    var stripeMat1 = new THREE.MeshStandardMaterial({
+      color: 0xFFC107,
+      roughness: 0.4,
+      metalness: 0.3,
+      emissive: 0x332200
+    });
+    var stripeMat2 = new THREE.MeshStandardMaterial({
+      color: 0x212121,
+      roughness: 0.5,
+      metalness: 0.2
+    });
+    
+    for(var i = 0; i < 4; i++){
+      var stripeGeo = new THREE.BoxGeometry(2.55, 0.32, 0.65);
+      var stripe = new THREE.Mesh(stripeGeo, i % 2 === 0 ? stripeMat1 : stripeMat2);
+      stripe.position.y = 0.2 + i * 0.42;
+      group.add(stripe);
+    }
+    
+    // Concrete base
+    var baseMat = new THREE.MeshStandardMaterial({
+      color: 0x616161,
+      roughness: 0.95,
+      metalness: 0.05
+    });
+    var baseGeo = new THREE.BoxGeometry(2.8, 0.2, 0.8);
+    var base = new THREE.Mesh(baseGeo, baseMat);
+    base.position.y = 0.1;
+    base.receiveShadow = true;
+    base.castShadow = true;
+    group.add(base);
+    
+    group.position.set(0, 0, zPos);
+    return group;
+  }
+
+  function onResize(){
+    var w = container.clientWidth, h = container.clientHeight;
+    camera.aspect = w/h;
+    camera.updateProjectionMatrix();
+    renderer.setSize(w, h);
+  }
+
+  // ===== SPEECH RECOGNITION =====
+  function initSpeech(){
+    var SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if(!SpeechRecognition){
+      document.getElementById('voice-status').textContent = 'Trình duyệt không hỗ trợ';
+      document.getElementById('voice-status').style.background = 'rgba(220,38,38,.14)';
+      document.getElementById('voice-status').style.color = '#dc2626';
+      return false;
+    }
+    
+    game.recognition = new SpeechRecognition();
+    game.recognition.lang = 'vi-VN';
+    game.recognition.continuous = false;
+    game.recognition.interimResults = false;
+    game.recognition.maxAlternatives = 3;
+    
+    game.recognition.onstart = function(){
+      game.listening = true;
+      document.getElementById('voice-status').textContent = '🎤 Đang nghe...';
+      document.getElementById('voice-status').style.background = 'rgba(217,119,6,.18)';
+      document.getElementById('voice-status').style.color = 'var(--accent2)';
+    };
+    
+    game.recognition.onresult = function(event){
+      var bestTranscript = '';
+      for(var a = 0; a < event.results[0].length; a++){
+        var alt = event.results[0][a].transcript.toLowerCase().trim();
+        if(alt.length > bestTranscript.length) bestTranscript = alt;
+      }
+      console.log('Heard:', bestTranscript, '| Alternatives:', event.results[0].length);
+      checkAnswer(bestTranscript);
+    };
+    
+    game.recognition.onerror = function(event){
+      console.log('Speech error:', event.error);
+      game.listening = false;
+      if(game.running && !game.paused){
+        document.getElementById('voice-status').textContent = 'Thử lại...';
+        document.getElementById('voice-status').style.background = 'rgba(220,38,38,.14)';
+        document.getElementById('voice-status').style.color = '#dc2626';
+        // Auto retry
+        setTimeout(function(){
+          if(game.running && game.obstacleActive) startListening();
+        }, 300);
+      }
+    };
+    
+    game.recognition.onend = function(){
+      game.listening = false;
+      if(game.running && !game.paused && !game.obstacleActive){
+        document.getElementById('voice-status').textContent = 'Sẵn sàng';
+        document.getElementById('voice-status').style.background = 'var(--accent-soft)';
+        document.getElementById('voice-status').style.color = 'var(--accent)';
+      }
+    };
+    
+    game.voiceReady = true;
+    document.getElementById('mic-btn').disabled = false;
+    return true;
+  }
+
+  function startListening(){
+    if(!game.voiceReady || game.listening || !game.running) return;
+    try{
+      game.recognition.start();
+    }catch(e){
+      console.log('Recognition start error:', e);
+    }
+  }
+
+  function normalize(str){
+    return str.toLowerCase().trim().replace(/\s+/g, ' ');
+  }
+
+  function checkAnswer(transcript){
+    if(!game.obstacleActive || !game.currentObstacle) return;
+    
+    var names = game.currentObstacle.names;
+    var heard = normalize(transcript);
+    var correct = false;
+    
+    for(var i = 0; i < names.length; i++){
+      var target = normalize(names[i]);
+      if(heard.includes(target) || target.includes(heard)){
+        correct = true;
+        break;
+      }
+    }
+    
+    // Also check if they just said the letter itself for vowels
+    if(!correct){
+      var letter = game.currentObstacle.letter;
+      if(heard.includes(letter) && letter.length === 1){
+        var vowels = ['a','ă','â','e','ê','i','o','ô','ơ','u','ư','y'];
+        if(vowels.indexOf(letter) >= 0){
+          correct = true;
+        }
+      }
+    }
+    
+    if(correct){
+      onCorrectAnswer();
+    }else{
+      onWrongAnswer('Nghe thấy: "' + transcript + '"');
+    }
+  }
+
+  function onCorrectAnswer(){
+    game.score += 10;
+    game.speed = Math.min(2.2, game.speed + 0.04);
+    game.monsterDistance = Math.min(18, game.monsterDistance + 1.5);
+    updateHUD();
+    
+    showFeedback('✓ ĐÚNG! +10', '#16a34a', 'rgba(22,163,74,.95)');
+    isJumping = true;
+    jumpVelocity = 0.28;
+    
+    hideLetter();
+    game.obstacleActive = false;
+  }
+
+  function onWrongAnswer(msg){
+    // Game over immediately when wrong
+    showFeedback(msg ? msg + ' → SAI!' : 'SAI!', '#dc2626', 'rgba(220,38,38,.95)');
+    hideLetter();
+    game.obstacleActive = false;
+    
+    // Monster catches player
+    game.monsterDistance = game.monsterCatchDistance;
+    setTimeout(function(){
+      gameOver();
+    }, 600);
+  }
+
+  function showFeedback(text, color, bg){
+    var fb = document.getElementById('feedback');
+    fb.textContent = text;
+    fb.style.color = '#fff';
+    fb.style.background = bg;
+    fb.style.display = 'block';
+    setTimeout(function(){fb.style.display = 'none';}, 1200);
+  }
+
+  function showLetter(letterData){
+    var overlay = document.getElementById('letter-overlay');
+    var displayLetter = letterData.letter.length > 1 ? letterData.letter : letterData.letter.toUpperCase();
+    document.getElementById('current-letter').textContent = displayLetter;
+    document.getElementById('letter-hint').textContent = letterData.names[0];
+    overlay.style.display = 'block';
+  }
+
+  function hideLetter(){
+    document.getElementById('letter-overlay').style.display = 'none';
+  }
+
+  function updateHUD(){
+    document.getElementById('score').textContent = game.score;
+    document.getElementById('monster-dist').textContent = Math.max(0, game.monsterDistance - game.monsterCatchDistance).toFixed(1) + 'm';
+    document.getElementById('speed').textContent = game.speed.toFixed(1) + 'x';
+    
+    // Danger indicator
+    var danger = document.getElementById('danger-indicator');
+    if(game.monsterDistance < 7){
+      danger.style.display = 'block';
+    }else{
+      danger.style.display = 'none';
+    }
+  }
+
+  function spawnObstacle(){
+    if(obstacles.length > 0 && obstacles[obstacles.length - 1].position.z > 40) return;
+    
+    var zPos = 70 + Math.random() * 15;
+    var obstacle = createObstacle(zPos);
+    
+    // Pick random letter (65% single letters, 35% compounds to increase difficulty)
+    var pool = Math.random() < 0.65 ? LETTERS : COMPOUNDS;
+    var letterData = pool[Math.floor(Math.random() * pool.length)];
+    obstacle.userData.letterData = letterData;
+    obstacle.userData.letterShown = false;
+    obstacle.userData.passed = false;
+    
+    obstacles.push(obstacle);
+    scene.add(obstacle);
+  }
+
+  // ===== CAMERA - Right side view =====
+  function updateCamera(){
+    // Camera follows player from right side, slightly behind
+    var targetX = player.position.x + cameraOffset.x;
+    var targetY = player.position.y + cameraOffset.y;
+    var targetZ = player.position.z + cameraOffset.z;
+    
+    camera.position.x += (targetX - camera.position.x) * 0.1;
+    camera.position.y += (targetY - camera.position.y) * 0.1;
+    camera.position.z += (targetZ - camera.position.z) * 0.1;
+    
+    // Look slightly ahead of player
+    var lookTarget = new THREE.Vector3(
+      player.position.x - 1,
+      player.position.y + 1.2,
+      player.position.z + 8
+    );
+    camera.lookAt(lookTarget);
+  }
+
+  // ===== GAME LOOP =====
+  function animate(){
+    requestAnimationFrame(animate);
+    
+    var delta = clock.getDelta();
+    
+    if(!game.running || game.paused){
+      renderer.render(scene, camera);
+      return;
+    }
+    
+    var moveSpeed = game.baseSpeed * game.speed;
+    
+    // Animate player running
+    playerAnimTime += delta * 12 * game.speed;
+    if(player.userData.legL){
+      player.userData.legL.rotation.x = Math.sin(playerAnimTime) * 0.7;
+      player.userData.legR.rotation.x = -Math.sin(playerAnimTime) * 0.7;
+      if(player.userData.shoeL){
+        player.userData.shoeL.rotation.x = player.userData.legL.rotation.x;
+        player.userData.shoeR.rotation.x = player.userData.legR.rotation.x;
+      }
+      player.userData.armL.rotation.x = -Math.sin(playerAnimTime) * 0.6;
+      player.userData.armR.rotation.x = Math.sin(playerAnimTime) * 0.6;
+      if(player.userData.handL){
+        player.userData.handL.rotation.x = player.userData.armL.rotation.x;
+        player.userData.handR.rotation.x = player.userData.armR.rotation.x;
+      }
+    }
+    
+    // Jumping
+    if(isJumping){
+      player.position.y += jumpVelocity;
+      jumpVelocity -= 0.018;
+      if(player.position.y <= 0){
+        player.position.y = 0;
+        isJumping = false;
+        jumpVelocity = 0;
+      }
+    }
+    
+    // Move world (scrolling effect)
+    game.distance += moveSpeed;
+    
+    // Monster slowly gains ground
+    game.monsterDistance -= 0.003 * game.speed;
+    
+    // Move obstacles toward player
+    for(var i = obstacles.length - 1; i >= 0; i--){
+      var obs = obstacles[i];
+      obs.position.z -= moveSpeed;
+      
+      // Show letter when obstacle is far enough for reaction time
+      if(!obs.userData.letterShown && obs.position.z < 45 && obs.position.z > 25){
+        obs.userData.letterShown = true;
+        game.currentObstacle = obs.userData.letterData;
+        game.obstacleActive = true;
+        showLetter(obs.userData.letterData);
+        startListening();
+      }
+      
+      // Check if obstacle passed without answer
+      if(!obs.userData.passed && obs.position.z < 3 && obs.position.z > -1 && game.obstacleActive){
+        if(player.position.y < 1.3){
+          // Hit obstacle
+          obs.userData.passed = true;
+          onWrongAnswer('Va chướng!');
+        }
+      }
+      
+      // Timeout: if obstacle too close and still active
+      if(!obs.userData.passed && obs.position.z < 8 && game.obstacleActive){
+        // Already handled by collision
+      }
+      
+      // Remove passed obstacles
+      if(obs.position.z < -8){
+        obs.userData.passed = true;
+        scene.remove(obs);
+        obstacles.splice(i, 1);
+      }
+    }
+    
+    // Spawn new obstacles
+    var spawnChance = 0.012 * game.speed;
+    if(obstacles.length === 0 || (obstacles[obstacles.length - 1].position.z < 50 && Math.random() < spawnChance)){
+      spawnObstacle();
+    }
+    
+    // Monster movement and animation
+    var targetMonsterZ = player.position.z - game.monsterDistance;
+    monster.position.z += (targetMonsterZ - monster.position.z) * 0.08;
+    monster.position.x = player.position.x - 0.3;
+    
+    if(monster.userData.legL){
+      monster.userData.legL.rotation.x = Math.sin(playerAnimTime * 0.9) * 0.55;
+      monster.userData.legR.rotation.x = -Math.sin(playerAnimTime * 0.9) * 0.55;
+      monster.userData.armL.rotation.x = -Math.sin(playerAnimTime * 0.9) * 0.5;
+      monster.userData.armR.rotation.x = Math.sin(playerAnimTime * 0.9) * 0.5;
+    }
+    if(monster.userData.jaw){
+      monster.userData.jaw.rotation.x = Math.sin(playerAnimTime * 2) * 0.08;
+    }
+    if(monster.userData.tail){
+      monster.userData.tail.rotation.z = Math.sin(playerAnimTime * 0.5) * 0.2;
+    }
+    
+    // Dust particles follow player
+    dustParticles.forEach(function(dust){
+      dust.position.x = player.position.x;
+      dust.position.z = player.position.z - 0.5;
+      var positions = dust.geometry.attributes.position.array;
+      for(var p = 0; p < positions.length; p += 3){
+        positions[p + 2] += moveSpeed * 0.5;
+        if(positions[p + 2] > 3){
+          positions[p + 2] = -1;
+          positions[p] = (Math.random() - 0.5) * 0.8;
+        }
+      }
+      dust.geometry.attributes.position.needsUpdate = true;
+    });
+    
+    // Update camera
+    updateCamera();
+    
+    // Update HUD
+    updateHUD();
+    
+    // Check monster catch
+    if(game.monsterDistance <= game.monsterCatchDistance){
+      gameOver();
+    }
+    
+    renderer.render(scene, camera);
+  }
+
+  // ===== GAME CONTROLS =====
+  function startGame(){
+    game.running = true;
+    game.paused = false;
+    game.score = 0;
+    game.speed = 1;
+    game.distance = 0;
+    game.monsterDistance = 12;
+    game.obstacleActive = false;
+    
+    // Clear obstacles
+    obstacles.forEach(function(o){scene.remove(o);});
+    obstacles = [];
+    
+    // Reset positions
+    player.position.set(0, 0, 0);
+    monster.position.set(0, 0, -game.monsterDistance);
+    
+    updateHUD();
+    document.getElementById('start-screen').style.display = 'none';
+    document.getElementById('gameover-screen').style.display = 'none';
+    document.getElementById('pause-btn').disabled = false;
+    document.getElementById('danger-indicator').style.display = 'none';
+    
+    if(!initSpeech()){
+      showFeedback('Trình duyệt không hỗ trợ giọng nói', '#dc2626', 'rgba(220,38,38,.95)');
+    }
+  }
+
+  function gameOver(){
+    game.running = false;
+    document.getElementById('final-score').textContent = game.score;
+    document.getElementById('gameover-screen').style.display = 'flex';
+    document.getElementById('pause-btn').disabled = true;
+    document.getElementById('danger-indicator').style.display = 'none';
+    hideLetter();
+    if(game.recognition){
+      try{game.recognition.stop();}catch(e){}
+    }
+    
+    // Shake effect
+    document.getElementById('game-container').classList.add('shake');
+    setTimeout(function(){
+      document.getElementById('game-container').classList.remove('shake');
+    }, 400);
+  }
+
+  function togglePause(){
+    if(!game.running) return;
+    game.paused = !game.paused;
+    document.getElementById('pause-btn').textContent = game.paused ? '▶ Tiếp Tục' : '⏸ Tạm Dừng';
+  }
+
+  // ===== EVENT LISTENERS =====
+  document.getElementById('start-btn').addEventListener('click', startGame);
+  document.getElementById('restart-btn').addEventListener('click', startGame);
+  document.getElementById('pause-btn').addEventListener('click', togglePause);
+  document.getElementById('mic-btn').addEventListener('click', startListening);
+
+  // Keyboard
+  document.addEventListener('keydown', function(e){
+    if(e.code === 'Space' && game.running && !game.paused){
+      e.preventDefault();
+      if(!isJumping){
+        isJumping = true;
+        jumpVelocity = 0.25;
+      }
+    }
+    if(e.code === 'KeyP'){
+      togglePause();
+    }
+  });
+
+  // ===== INIT =====
+  initThree();
+  animate();
+
+})();
+</script>
+</html>
