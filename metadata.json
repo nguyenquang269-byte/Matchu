@@ -1,0 +1,10 @@
+{
+  "name": "Chạy Nhanh - Học Chữ",
+  "description": "Trò chơi học chữ cái tiếng Việt 3D runner với tính năng đàn chó đuổi theo liếm mặt, chữ thường viết tay và nhận diện giọng nói chuẩn",
+  "requestFramePermissions": [
+    "microphone"
+  ],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

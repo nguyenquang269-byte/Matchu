@@ -1,0 +1,15 @@
+{
+  "name": "matchu",
+  "version": "1.0.0",
+  "description": "Chạy Nhanh - Học Chữ (Vietnamese Alphabet Runner 3D)",
+  "main": "server.js",
+  "type": "module",
+  "scripts": {
+    "build": "echo 'Build complete'",
+    "dev": "node server.js",
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.21.2"
+  }
+}
