@@ -1055,12 +1055,13 @@
     showFeedback(msg ? msg + ' → SAI!' : 'SAI!', '#dc2626', 'rgba(220,38,38,.95)');
     hideLetter();
     game.obstacleActive = false;
+    triggerDogPack();
     
     // Monster catches player
     game.monsterDistance = game.monsterCatchDistance;
     setTimeout(function(){
       gameOver();
-    }, 600);
+    }, 900);
   }
 
   function showFeedback(text, color, bg){
@@ -1694,6 +1695,225 @@
   }
 
   window.triggerDogPack = triggerDogPack;
+    dogs: []
+  };
+
+  var dogAudio = {
+    ctx: null,
+    elements: { bark: null, lick: null },
+    failed: { bark: false, lick: false },
+    lastBarkAt: 0
+  };
+
+  function ensureDogAudioContext(){
+    if(dogAudio.ctx) return dogAudio.ctx;
+    try{
+      var Ctx = window.AudioContext || window.webkitAudioContext;
+      if(!Ctx) return null;
+      dogAudio.ctx = new Ctx();
+      return dogAudio.ctx;
+    }catch(e){
+      return null;
+    }
+  }
+
+  function resumeDogAudioContext(){
+    var ctx = ensureDogAudioContext();
+    if(!ctx || ctx.state !== 'suspended') return;
+    ctx.resume().catch(function(){});
+  }
+
+  function createDogAudioElement(kind, url){
+    if(!url) return null;
+    try{
+      var el = new Audio(url);
+      el.preload = 'auto';
+      el.crossOrigin = 'anonymous';
+      el.addEventListener('error', function(){
+        dogAudio.failed[kind] = true;
+      });
+      return el;
+    }catch(e){
+      dogAudio.failed[kind] = true;
+      return null;
+    }
+  }
+
+  function initDogAudioSources(){
+    if(!dogAudio.elements.bark && dogBarkUrl){
+      dogAudio.elements.bark = createDogAudioElement('bark', dogBarkUrl);
+    }
+    if(!dogAudio.elements.lick && dogLickUrl){
+      dogAudio.elements.lick = createDogAudioElement('lick', dogLickUrl);
+    }
+  }
+
+  function playDogHtmlAudio(kind, volume){
+    var source = dogAudio.elements[kind];
+    if(!source || dogAudio.failed[kind]) return false;
+    try{
+      var audio = source.cloneNode();
+      audio.volume = volume;
+      var p = audio.play();
+      if(p && p.catch){
+        p.catch(function(){
+          dogAudio.failed[kind] = true;
+        });
+      }
+      return true;
+    }catch(e){
+      dogAudio.failed[kind] = true;
+      return false;
+    }
+  }
+
+  function playBarkSynth(){
+    var ctx = ensureDogAudioContext();
+    if(!ctx) return;
+    try{
+      var t = ctx.currentTime;
+      var len = Math.max(1, Math.floor(ctx.sampleRate * 0.13));
+      var buffer = ctx.createBuffer(1, len, ctx.sampleRate);
+      var data = buffer.getChannelData(0);
+      for(var i = 0; i < len; i++){
+        var env = Math.max(0, 1 - i / len);
+        data[i] = (Math.random() * 2 - 1) * env;
+      }
+      var noise = ctx.createBufferSource();
+      noise.buffer = buffer;
+      var low = ctx.createBiquadFilter();
+      low.type = 'lowpass';
+      low.frequency.setValueAtTime(900, t);
+      low.frequency.exponentialRampToValueAtTime(280, t + 0.11);
+      var gain = ctx.createGain();
+      gain.gain.setValueAtTime(0.0001, t);
+      gain.gain.exponentialRampToValueAtTime(0.6 * dogSoundConfig.barkVolume, t + 0.015);
+      gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.12);
+      var pitch = ctx.createOscillator();
+      pitch.type = 'sawtooth';
+      pitch.frequency.setValueAtTime(170, t);
+      pitch.frequency.exponentialRampToValueAtTime(95, t + 0.1);
+      var pitchGain = ctx.createGain();
+      pitchGain.gain.setValueAtTime(0.12 * dogSoundConfig.barkVolume, t);
+      pitchGain.gain.exponentialRampToValueAtTime(0.0001, t + 0.12);
+      noise.connect(low);
+      low.connect(gain);
+      gain.connect(ctx.destination);
+      pitch.connect(pitchGain);
+      pitchGain.connect(ctx.destination);
+      noise.start(t);
+      noise.stop(t + 0.13);
+      pitch.start(t);
+      pitch.stop(t + 0.12);
+    }catch(e){}
+  }
+
+  function playLickSynth(){
+    var ctx = ensureDogAudioContext();
+    if(!ctx) return;
+    try{
+      var t = ctx.currentTime;
+      var len = Math.max(1, Math.floor(ctx.sampleRate * 0.045));
+      var buffer = ctx.createBuffer(1, len, ctx.sampleRate);
+      var data = buffer.getChannelData(0);
+      for(var i = 0; i < len; i++){
+        data[i] = (Math.random() * 2 - 1) * (1 - i / len);
+      }
+      var noise = ctx.createBufferSource();
+      noise.buffer = buffer;
+      var high = ctx.createBiquadFilter();
+      high.type = 'highpass';
+      high.frequency.value = 2400;
+      var gain = ctx.createGain();
+      gain.gain.setValueAtTime(0.0001, t);
+      gain.gain.exponentialRampToValueAtTime(0.42 * dogSoundConfig.lickVolume, t + 0.004);
+      gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.04);
+      var click = ctx.createOscillator();
+      click.type = 'triangle';
+      click.frequency.setValueAtTime(1100, t);
+      click.frequency.exponentialRampToValueAtTime(550, t + 0.03);
+      var clickGain = ctx.createGain();
+      clickGain.gain.setValueAtTime(0.16 * dogSoundConfig.lickVolume, t);
+      clickGain.gain.exponentialRampToValueAtTime(0.0001, t + 0.03);
+      noise.connect(high);
+      high.connect(gain);
+      gain.connect(ctx.destination);
+      click.connect(clickGain);
+      clickGain.connect(ctx.destination);
+      noise.start(t);
+      noise.stop(t + 0.045);
+      click.start(t);
+      click.stop(t + 0.03);
+    }catch(e){}
+  }
+
+  function playBark(){
+    var now = performance.now();
+    if(now - dogAudio.lastBarkAt < dogSoundConfig.barkCooldownMs) return;
+    dogAudio.lastBarkAt = now;
+    resumeDogAudioContext();
+    if(playDogHtmlAudio('bark', dogSoundConfig.barkVolume)) return;
+    playBarkSynth();
+  }
+
+  function playLick(){
+    resumeDogAudioContext();
+    if(playDogHtmlAudio('lick', dogSoundConfig.lickVolume)) return;
+    playLickSynth();
+  }
+
+  function showDogLickOverlay(){
+    var fb = document.getElementById('feedback');
+    if(!fb) return;
+    fb.style.display = 'block';
+    fb.style.transform = 'translate(-50%,-50%) scale(1)';
+    fb.textContent = '👅 Đàn chó liếm mặt!';
+    fb.style.background = 'rgba(255,255,255,0.95)';
+    fb.style.color = '#222';
+    setTimeout(function(){
+      fb.style.display = 'none';
+    }, 900);
+  }
+
+  function startDogLick(dogObj){
+    if(!dogPack.active || !dogObj || dogObj.state === 'licking') return;
+    dogObj.state = 'licking';
+    playLick();
+    showDogLickOverlay();
+  }
+
+  function spawnDogPack(count){
+    if(dogPack.active || !game.running) return;
+    dogPack.active = true;
+    dogPack.dogs = [];
+    for(var i = 0; i < Math.max(1, count || 1); i++){
+      dogPack.dogs.push({ state: 'run-in' });
+    }
+    playBark();
+    if(Math.random() < dogSoundConfig.runInBarkChance){
+      setTimeout(function(){
+        if(!dogPack.active) return;
+        playBark();
+      }, dogSoundConfig.runInBarkDelayMs);
+    }
+    setTimeout(function(){
+      if(!dogPack.active || dogPack.dogs.length === 0) return;
+      startDogLick(dogPack.dogs[0]);
+    }, dogSoundConfig.lickDelayMs);
+    setTimeout(function(){
+      dogPack.active = false;
+      dogPack.dogs = [];
+    }, 1200);
+  }
+
+  function triggerDogPack(){
+    if(dogPack.active) return;
+    spawnDogPack(5);
+  }
+
+  initDogAudioSources();
+  document.addEventListener('pointerdown', resumeDogAudioContext, {passive:true});
+  document.addEventListener('keydown', resumeDogAudioContext);
 
   // ===== INIT =====
   initThree();
